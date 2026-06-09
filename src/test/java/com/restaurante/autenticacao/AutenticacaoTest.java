@@ -1,9 +1,25 @@
 package com.restaurante.autenticacao;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 public class AutenticacaoTest {
+
+    private CardapioService cardapioServiceMock;
+    private CardapioServiceProxy proxy;
+
+    @BeforeEach
+    public void setUp() {
+        // 1. Criamos um "clone falso" (Mock) do serviço real do cardápio
+        cardapioServiceMock = mock(CardapioService.class);
+
+        // 2. Injetamos o mock dentro do seu Proxy
+        proxy = new CardapioServiceProxy(cardapioServiceMock);
+    }
 
     // CT01: Verificar a criação de novos perfis / Login válido
     @Test
@@ -20,30 +36,36 @@ public class AutenticacaoTest {
     public void testCT02_LoginComFalha() {
         Usuario usuario = new Usuario("gusta", "senhaErrada", "GERENTE");
 
-        // Garante que o sistema não confunda a senha errada com a senha certa
         assertNotEquals("senha123", usuario.getSenha());
     }
 
     // CT12: Tentar cadastro/alteração com perfil sem permissão (Exceção)
     @Test
     public void testCT12_BloqueioDeAlteracaoItemCardapio() {
-        CardapioServiceProxy proxy = new CardapioServiceProxy();
         Usuario garcom = new Usuario("pedro", "123", "GARCOM");
 
-        // O JUnit vai testar se o Proxy realmente joga um erro de segurança na cara do Garçom
+        // O JUnit testa se o Proxy joga o erro na cara do Garçom
         assertThrows(SecurityException.class, () -> {
             proxy.alterarPrecoItem(garcom, "Filé Mignon", 45.90);
         });
+
+        // Garante que o serviço real NUNCA foi chamado, provando que o Proxy barrou antes
+        verifyNoInteractions(cardapioServiceMock);
     }
 
     // CT15: Validar permissão de alteração (Gerente logado com sucesso)
     @Test
     public void testCT15_PermissaoDeAlteracaoItemCardapio() {
-        CardapioServiceProxy proxy = new CardapioServiceProxy();
         Usuario gerente = new Usuario("gusta", "senha123", "GERENTE");
 
-        // O Proxy tem que retornar true e permitir que o gerente mude o preço
+        // Ensinamos o Mock a fingir que deu certo se o gerente chegar até ele
+        when(cardapioServiceMock.alterarPrecoItem(any(), anyString(), anyDouble())).thenReturn(true);
+
+        // O Proxy tem que permitir que o gerente passe e retorne true
         boolean resultado = proxy.alterarPrecoItem(gerente, "Filé Mignon", 45.90);
         assertTrue(resultado);
+
+        // Verifica de forma dinâmica se o Proxy realmente repassou a ordem para o serviço real
+        verify(cardapioServiceMock, times(1)).alterarPrecoItem(gerente, "Filé Mignon", 45.90);
     }
 }
