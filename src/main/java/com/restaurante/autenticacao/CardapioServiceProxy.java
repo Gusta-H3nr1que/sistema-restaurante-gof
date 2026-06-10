@@ -19,6 +19,12 @@ public class CardapioServiceProxy {
      * @throws SecurityException se o usuário for um garçom ou nulo
      */
 
+    private CardapioService service;
+
+    public CardapioServiceProxy(CardapioService service) {
+        this.service = service;
+    }
+
     // Método que o Proxy intercepta para validar a segurança
     public boolean alterarPrecoItem(Usuario usuario, String nomeItem, double novoPreco) {
 
